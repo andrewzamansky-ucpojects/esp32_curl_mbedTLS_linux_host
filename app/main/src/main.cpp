@@ -77,10 +77,14 @@ int main( void )
 		}
 	#endif
 	DEV_IOCTL_0_PARAMS(esp8266_dev, IOCTL_DEVICE_START);
+//	DEV_IOCTL_1_PARAMS(esp8266_dev,
+//			IOCTL_ESP8266_SET_SSID_NAME, (void*)"WECA-NTCA");
+//	DEV_IOCTL_1_PARAMS(esp8266_dev,
+//			IOCTL_ESP8266_SET_SSID_PSWRD, (void*)"4wecantca");
 	DEV_IOCTL_1_PARAMS(esp8266_dev,
-			IOCTL_ESP8266_SET_SSID_NAME, (void*)"WECA-NTCA");
+			IOCTL_ESP8266_SET_SSID_NAME, (void*)"slow_wifi");
 	DEV_IOCTL_1_PARAMS(esp8266_dev,
-			IOCTL_ESP8266_SET_SSID_PSWRD, (void*)"4wecantca");
+			IOCTL_ESP8266_SET_SSID_PSWRD, (void*)"keyforwifi");
 
 	set_esp8266_pdev_for_socket_api(esp8266_dev);
 #endif

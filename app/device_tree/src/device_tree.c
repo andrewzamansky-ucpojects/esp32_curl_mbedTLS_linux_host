@@ -15,7 +15,7 @@
 
 #define UART_LINUX_DT_TX_CALLBACK_PDEV      esp8266_uart_tx_wrap_dev
 #define UART_LINUX_DT_RX_CALLBACK_PDEV      esp8266_uart_rx_wrap_dev
-#define UART_LINUX_DT_TTY_DEV_PATH           "/dev/ttyUSB1"
+#define UART_LINUX_DT_TTY_DEV_PATH           "/dev/ttyUSB0"
 #define UART_LINUX_DT_BAUD_RATE              115200
 
 #include ADD_CURRENT_DEV
