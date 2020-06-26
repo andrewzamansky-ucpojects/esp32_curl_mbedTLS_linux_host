@@ -10,6 +10,8 @@
 	#include "sys/socket.h"
 	#include "dev_management_api.h"
 	#include "ESP8266_api.h"
+	#include "file_descriptor_manager_api.h"
+	#include "std_net_functions_api.h"
 #endif
 
 #include <string.h> /* memcpy, memset */
@@ -41,13 +43,14 @@ int main( void )
 	fd_set fds_read;
 	fd_set fds_write;
 	fd_set fds_err;
+	uint8_t esp8266_ready;
 
 	char const *message =
 			"GET / HTTP/1.1\r\n"
 			"Host: www.example.com\r\n"
 			"Accept: */*\r\n"
 			"\r\n";
-
+	file_descriptor_manager_api_init();
 #if defined(USE_OUR_SOCKET_API)
 //	#define TEST_UART
 	#if defined(TEST_UART)
@@ -77,6 +80,13 @@ int main( void )
 		}
 	#endif
 	DEV_IOCTL_0_PARAMS(esp8266_dev, IOCTL_DEVICE_START);
+	esp8266_ready = 0;
+	while (0 == esp8266_ready)
+	{
+		DEV_IOCTL_1_PARAMS(esp8266_dev,
+				IOCTL_ESP8266_IS_INITIALIZED, &esp8266_ready);
+	}
+
 //	DEV_IOCTL_1_PARAMS(esp8266_dev,
 //			IOCTL_ESP8266_SET_SSID_NAME, (void*)"WECA-NTCA");
 //	DEV_IOCTL_1_PARAMS(esp8266_dev,
@@ -86,7 +96,9 @@ int main( void )
 	DEV_IOCTL_1_PARAMS(esp8266_dev,
 			IOCTL_ESP8266_SET_SSID_PSWRD, (void*)"keyforwifi");
 
-	set_esp8266_pdev_for_socket_api(esp8266_dev);
+
+	file_descriptor_manager_api_register_INET_device(esp8266_dev);
+	std_net_functions_api_register_net_device(esp8266_dev);
 #endif
 
 	printf("request will be sent : \n--start--\n%s", message);
@@ -95,6 +107,8 @@ int main( void )
 	portno = 80;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	printf("sockfd = %d\n", sockfd);
+
 	if (sockfd < 0)
 	{
 		error("ERROR opening socket");
@@ -140,8 +154,6 @@ int main( void )
             break;
         total_sent+=bytes_sent;
     } while (bytes_sent < total);
-
-	printf("socket write finished\n");
 
 	FD_ZERO(&fds_read);
 	FD_ZERO(&fds_write);
