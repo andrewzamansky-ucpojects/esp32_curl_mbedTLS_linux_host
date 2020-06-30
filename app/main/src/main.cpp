@@ -151,15 +151,6 @@ int main( void )
 			sleep(5);
 		}
 	#endif
-	DEV_IOCTL_0_PARAMS(esp8266_dev, IOCTL_DEVICE_START);
-	esp8266_ready = 0;
-	while (0 == esp8266_ready)
-	{
-		DEV_IOCTL_1_PARAMS(esp8266_dev,
-				IOCTL_ESP8266_IS_INITIALIZED, &esp8266_ready);
-		while(PRINTF_API_print_from_debug_buffer(64));
-		sleep(1);
-	}
 
 //	DEV_IOCTL_1_PARAMS(esp8266_dev,
 //			IOCTL_ESP8266_SET_SSID_NAME, (void*)"WECA-NTCA");
@@ -169,6 +160,15 @@ int main( void )
 			IOCTL_ESP8266_SET_SSID_NAME, (void*)"slow_wifi");
 	DEV_IOCTL_1_PARAMS(esp8266_dev,
 			IOCTL_ESP8266_SET_SSID_PSWRD, (void*)"keyforwifi");
+	DEV_IOCTL_0_PARAMS(esp8266_dev, IOCTL_DEVICE_START);
+	esp8266_ready = 0;
+	while (0 == esp8266_ready)
+	{
+		DEV_IOCTL_1_PARAMS(esp8266_dev,
+				IOCTL_ESP8266_IS_INITIALIZED, &esp8266_ready);
+		while(PRINTF_API_print_from_debug_buffer(64));
+		sleep(1);
+	}
 
 
 	file_descriptor_manager_api_register_INET_device(esp8266_dev);
