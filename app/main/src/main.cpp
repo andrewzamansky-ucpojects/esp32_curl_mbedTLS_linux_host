@@ -7,7 +7,6 @@
 	#include <netdb.h>
 	#include <arpa/inet.h>
 #else
-	#include "sys/socket.h"
 	#include "dev_management_api.h"
 	#include "ESP8266_api.h"
 	#include "file_descriptor_manager_api.h"
@@ -17,6 +16,32 @@
 #include <string.h> /* memcpy, memset */
 #include <unistd.h>
 #include <uart_api.h>
+#include "curl/curl.h"
+
+extern "C" {
+	#define DEBUG
+	#include "PRINTF_api.h"
+}
+
+#define TEST_HTTP
+//#define TEST_HTTPS
+//#define TEST_HTTP2
+
+#if defined(TEST_HTTP)
+	#if defined(TEST_HTTPS) || defined(TEST_HTTP2)
+		#error "only one test can be choosen "
+	#endif
+#endif
+#if defined(TEST_HTTPS)
+	#if defined(TEST_HTTP) || defined(TEST_HTTP2)
+		#error "only one test can be choosen "
+	#endif
+#endif
+#if defined(TEST_HTTP2)
+	#if defined(TEST_HTTP) || defined(TEST_HTTPS)
+		#error "only one test can be choosen "
+	#endif
+#endif
 
 void error(char const *msg)
 {
@@ -28,28 +53,75 @@ extern  struct dev_desc_t *esp8266_dev;
 extern  struct dev_desc_t *esp8266_uart_tx_wrap_dev;
 extern  struct dev_desc_t *esp8266_uart_dev;
 
+int my_trace(CURL *handle, curl_infotype type,
+             char *data, size_t size, void *userp)
+{
+  const char *text;
+  (void)handle; /* prevent compiler warning */
+  (void)userp; /* prevent compiler warning */
+
+  printf("%s-----\n", __FUNCTION__);
+  switch (type)
+  {
+  case CURLINFO_TEXT:
+	  PRINTF_DBG("== Info: ");
+	  PRINT_DATA_DBG(data, size);
+	  PRINTF_DBG("\n");// to flush stdout in linux
+  default: /* in case a new one is introduced to shock us */
+    return 0;
+  case CURLINFO_HEADER_OUT:
+    text = "=> Send header";
+  //  return 0;
+    break;
+  case CURLINFO_DATA_OUT:
+    text = "=> Send data";
+  //  return 0;
+    break;
+  case CURLINFO_SSL_DATA_OUT:
+    text = "=> Send SSL data";
+    PRINTF_DBG("%s", text);
+    PRINTF_DBG("\n");// to flush stdout in linux
+    return 0;
+   break;
+  case CURLINFO_HEADER_IN:
+    text = "<= Recv header";
+    break;
+  case CURLINFO_DATA_IN:
+    text = "<= Recv data";
+    break;
+  case CURLINFO_SSL_DATA_IN:
+    text = "<= Recv SSL data";
+    PRINTF_DBG("%s", text);
+    PRINTF_DBG("\n");// to flush stdout in linux
+    return 0;
+   break;
+  }
+
+  PRINTF_DBG("%s", text);
+  PRINT_DATA_DBG(data, size);
+  PRINTF_DBG("\n");// to flush stdout in linux
+  return 0;
+}
+
+
+size_t receive_data(void *contents, size_t size, size_t nmemb, void *userp)
+{
+	size_t realsize;
+
+	realsize = size * nmemb;
+	PRINT_DATA_DBG(contents, realsize);
+
+	return realsize;
+}
+
+
 int main( void )
 {
-	int sockfd, portno, n;
-	struct sockaddr_in serv_addr;
-	struct hostent *server;
-	char buffer[256];
-	int total;
-	int total_sent;
-	int bytes_sent;
-	struct hostent*  p_hostent;
-	char    *h_addr;
-	uint32_t server_ip;
-	fd_set fds_read;
-	fd_set fds_write;
-	fd_set fds_err;
 	uint8_t esp8266_ready;
+	CURL *curl;
+	CURLcode res;
 
-	char const *message =
-			"GET / HTTP/1.1\r\n"
-			"Host: www.example.com\r\n"
-			"Accept: */*\r\n"
-			"\r\n";
+	PRINTF_API_init();
 	file_descriptor_manager_api_init();
 #if defined(USE_OUR_SOCKET_API)
 //	#define TEST_UART
@@ -85,6 +157,8 @@ int main( void )
 	{
 		DEV_IOCTL_1_PARAMS(esp8266_dev,
 				IOCTL_ESP8266_IS_INITIALIZED, &esp8266_ready);
+		while(PRINTF_API_print_from_debug_buffer(64));
+		sleep(1);
 	}
 
 //	DEV_IOCTL_1_PARAMS(esp8266_dev,
@@ -101,92 +175,50 @@ int main( void )
 	std_net_functions_api_register_net_device(esp8266_dev);
 #endif
 
-	printf("request will be sent : \n--start--\n%s", message);
-	printf("--end--\n");
-
-	portno = 80;
-
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	printf("sockfd = %d\n", sockfd);
-
-	if (sockfd < 0)
+	curl_global_init(CURL_GLOBAL_DEFAULT);
+	curl = curl_easy_init();
+	if (NULL == curl)
 	{
-		error("ERROR opening socket");
-		return 1;
+		CRITICAL_ERROR("failed to init curl");
 	}
 
-	p_hostent = gethostbyname("www.example.com");
-	//p_hostent = gethostbyname("www.google.com");
-	h_addr = p_hostent->h_addr_list[0];
-    memcpy(&serv_addr.sin_addr, h_addr, sizeof(struct in_addr));
+#if defined(TEST_HTTP)
+	curl_easy_setopt(curl, CURLOPT_URL, "http://example.com/");
+#elif defined(TEST_HTTPS) || defined(TEST_HTTP2)
+	curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
+	#if defined(TEST_HTTP2)
+		curl_easy_setopt(curl,
+			CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+	#endif
+#else
+	#error "no test is selected"
+#endif
 
-    server_ip = (uint32_t)serv_addr.sin_addr.S_un.S_addr;
-    printf("dbg : resolved address :  %d.%d.%d.%d\n",
-    		server_ip  & 0xff, (server_ip >> 8)  & 0xff,
-    		(server_ip >> 16)  & 0xff, (server_ip >> 24)  & 0xff );
-    //    printf("dbg : resolved address :  %s\n", inet_ntoa(serv_addr.sin_addr));
+	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+	curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, my_trace);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, receive_data);
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
-	serv_addr.sin_family = AF_INET;
-	/*  93.184.216.34  is for example.com */
-	//inet_aton("93.184.216.34", &serv_addr.sin_addr);
-	serv_addr.sin_port = htons(portno);
+	res = curl_easy_perform(curl);
 
-
-	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+	if(res != CURLE_OK)
 	{
-		error("ERROR connecting");
-		close(sockfd);
-		return 1;
+		PRINTF_DBG("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 	}
-	printf("socket connected\n");
 
-    total = strlen(message);
-    total_sent = 0;
-    do {
-        //bytes_sent = write(sockfd, message + total_sent, total - total_sent);
-    	bytes_sent = send(sockfd, message + total_sent, total - total_sent, 0);
-        if (bytes_sent < 0)
-        {
-            error("ERROR writing message to socket");
-        	close(sockfd);
-        }
-        if (bytes_sent == 0)
-            break;
-        total_sent+=bytes_sent;
-    } while (bytes_sent < total);
-
-	FD_ZERO(&fds_read);
-	FD_ZERO(&fds_write);
-	FD_ZERO(&fds_err);
-	while (1)
-	{
-		FD_SET(sockfd, &fds_read);
-		select(sockfd + 1, &fds_read, &fds_write, &fds_err, NULL);
-
-		//n = read(sockfd, buffer, 255);
-		n = recv(sockfd, buffer, 255, 0);
-		if (0 == n)
-		{
-			//break;
-		}
-
-		if (n < 0)
-		{
-			 error("ERROR reading from socket");
-			close(sockfd);
-		}
-		buffer[n] = 0;
-		write(1, buffer, n);
-		//sleep(1);
-	}
-	printf("socket read finished\n");
-
+	curl_easy_cleanup(curl);
+	curl_global_cleanup();
 	while(1)
 	{
-		sleep(5);
+		while(PRINTF_API_print_from_debug_buffer(64));
+		sleep(1);
 	}
 
-	close(sockfd);
 
 	return 0;
+}
+
+
+extern "C" {
+	int custom_rand_generate(void) {return 0;}
 }

@@ -1,11 +1,6 @@
 /*
  * file : project_defines.h
  *
- *
- *
- *
- *
- *
  */
 
 #ifndef _project_defines_H
@@ -23,11 +18,7 @@
 #endif
 
 
+#define CRITICAL_ERROR(str)   \
+	{printf("!!err!! -----%s: %s\n", __FUNCTION__, str); exit(0);}
 
-#define CRITICAL_ERROR(str)   {printf("%s\n", str); exit(0);}
-
-
-
-/***********************************/
-
-#endif /* */
+#endif
