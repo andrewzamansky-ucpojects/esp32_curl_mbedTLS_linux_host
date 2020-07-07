@@ -21,11 +21,14 @@
 extern "C" {
 	#define DEBUG
 	#include "PRINTF_api.h"
+
+	void mbedtls_port_init();
+
 }
 
-#define TEST_HTTP
+//#define TEST_HTTP
 //#define TEST_HTTPS
-//#define TEST_HTTP2
+#define TEST_HTTP2
 
 #if defined(TEST_HTTP)
 	#if defined(TEST_HTTPS) || defined(TEST_HTTP2)
@@ -123,6 +126,8 @@ int main( void )
 
 	PRINTF_API_init();
 	file_descriptor_manager_api_init();
+	mbedtls_port_init();
+
 #if defined(USE_OUR_SOCKET_API)
 //	#define TEST_UART
 	#if defined(TEST_UART)
