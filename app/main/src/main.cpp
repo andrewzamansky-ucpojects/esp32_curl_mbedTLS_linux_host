@@ -27,8 +27,8 @@ extern "C" {
 }
 
 //#define TEST_HTTP
-//#define TEST_HTTPS
-#define TEST_HTTP2
+#define TEST_HTTPS
+//#define TEST_HTTP2
 
 #if defined(TEST_HTTP)
 	#if defined(TEST_HTTPS) || defined(TEST_HTTP2)
