@@ -1,7 +1,8 @@
+
+#include "project_config.h"
 #include <stdio.h>
 
-#define USE_OUR_SOCKET_API
-#if !defined(USE_OUR_SOCKET_API)
+#if !defined(CONFIG_USE_INTERNAL_SOCKETS_IMPLEMENTATION)
 	#include <sys/types.h>
 	#include <netinet/in.h>
 	#include <netdb.h>
@@ -11,11 +12,11 @@
 	#include "ESP8266_api.h"
 	#include "file_descriptor_manager_api.h"
 	#include "std_net_functions_api.h"
+	#include <uart_api.h>
 #endif
 
 #include <string.h> /* memcpy, memset */
 #include <unistd.h>
-#include <uart_api.h>
 #include "curl/curl.h"
 
 extern "C" {
@@ -27,8 +28,8 @@ extern "C" {
 }
 
 //#define TEST_HTTP
-#define TEST_HTTPS
-//#define TEST_HTTP2
+//#define TEST_HTTPS
+#define TEST_HTTP2
 
 #if defined(TEST_HTTP)
 	#if defined(TEST_HTTPS) || defined(TEST_HTTP2)
@@ -125,10 +126,10 @@ int main( void )
 	CURLcode res;
 
 	PRINTF_API_init();
-	file_descriptor_manager_api_init();
 	mbedtls_port_init();
 
-#if defined(USE_OUR_SOCKET_API)
+#if defined(CONFIG_USE_INTERNAL_SOCKETS_IMPLEMENTATION)
+	file_descriptor_manager_api_init();
 //	#define TEST_UART
 	#if defined(TEST_UART)
 		uint32_t interface_device_speed  = 921600;

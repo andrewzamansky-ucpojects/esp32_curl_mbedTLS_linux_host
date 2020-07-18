@@ -1,10 +1,11 @@
+#include "project_config.h"
 #include "_project.h"
 
 #include "dev_management_api.h"
 
 
 
-#if 1
+#if defined(CONFIG_USE_INTERNAL_SOCKETS_IMPLEMENTATION)
 
 /*************   UART SHELL *****************/
 
@@ -44,15 +45,6 @@
 
 
 /***********************************/
-/********** linux_timer_dev ********/
-#define DT_DEV_NAME                        linux_timer_dev
-#define DT_DEV_MODULE                      linux_timer
-
-#include ADD_CURRENT_DEV
-
-
-
-/***********************************/
 /********** esp8266_timer_dev ********/
 #define DT_DEV_NAME                        esp8266_timer_dev
 #define DT_DEV_MODULE                      timer_wrapper
@@ -75,4 +67,15 @@
 
 #include ADD_CURRENT_DEV
 
-#endif
+#endif // defined(CONFIG_USE_INTERNAL_SOCKETS_IMPLEMENTATION)
+
+/***********************************/
+/********** linux_timer_dev ********/
+#define DT_DEV_NAME                        linux_timer_dev
+#define DT_DEV_MODULE                      linux_timer
+
+#include ADD_CURRENT_DEV
+
+
+
+
